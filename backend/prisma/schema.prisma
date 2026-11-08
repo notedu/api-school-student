@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CargoAdministrador {
+  DIRETOR
+  COORDENADOR
+}
+
+enum TipoConta {
+  ALUNO
+  PROFESSOR
+}
+
+enum StatusSolicitacao {
+  PENDENTE
+  APROVADA
+  RECUSADA
+}
+
+enum StatusReavaliacao {
+  PENDENTE
+  APROVADA
+  RECUSADA
+}
+
+model Aluno {
+  id                      Int                           @id @default(autoincrement())
+  nome                    String
+  idade                   Int
+  cpf                     String                        @unique
+  ra                      String                        @unique
+  responsavelLegal        String
+  password                String
+  dataNascimento          DateTime                      @db.Date
+  cep                     String?
+  rua                     String
+  bairro                  String
+  cidade                  String
+  estado                  String
+  numeroCasa              String
+  complemento             String?
+  deveTrocarSenha         Boolean                       @default(false)
+  senhaTemporariaExpiraEm DateTime?
+  criadoEm                DateTime                      @default(now())
+  atualizadoEm            DateTime                      @updatedAt
+  notas                   Nota[]
+  reavaliacoes            PedidoReavaliacao[]
+  recuperacoes            SolicitacaoRecuperacaoSenha[]
+}
+
+model Professor {
+  id                      Int                           @id @default(autoincrement())
+  nome                    String
+  idade                   Int
+  cpf                     String                        @unique
+  password                String
+  dataNascimento          DateTime                      @db.Date
+  cep                     String?
+  rua                     String
+  bairro                  String
+  cidade                  String
+  estado                  String
+  numeroCasa              String
+  complemento             String?
+  deveTrocarSenha         Boolean                       @default(false)
+  senhaTemporariaExpiraEm DateTime?
+  criadoEm                DateTime                      @default(now())
+  atualizadoEm            DateTime                      @updatedAt
+  materias                ProfessorMateria[]
+  notas                   Nota[]
+  reavaliacoes            PedidoReavaliacao[]
+  recuperacoes            SolicitacaoRecuperacaoSenha[]
+}
+
+model Administrador {
+  id             Int                @id @default(autoincrement())
+  nome           String
+  idade          Int
+  cpf            String             @unique
+  password       String
+  dataNascimento DateTime           @db.Date
+  cargo          CargoAdministrador
+  criadoEm       DateTime           @default(now())
+  atualizadoEm   DateTime           @updatedAt
+}
+
+model Materia {
+  id          Int                @id @default(autoincrement())
+  nome        String             @unique
+  codigo      String             @unique
+  cor         String             @default("#0f766e")
+  ativa       Boolean            @default(true)
+  professores ProfessorMateria[]
+  notas       Nota[]
+  criadoEm    DateTime           @default(now())
+}
+
+model ProfessorMateria {
+  professorId Int
+  materiaId   Int
+  atribuidaEm DateTime  @default(now())
+  professor   Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  materia     Materia   @relation(fields: [materiaId], references: [id], onDelete: Cascade)
+
+  @@id([professorId, materiaId])
+}
+
+model Nota {
+  id           String              @id @default(cuid())
+  titulo       String
+  periodo      String
+  valor        Decimal             @db.Decimal(4, 2)
+  alunoId      Int
+  materiaId    Int
+  professorId  Int
+  criadoEm     DateTime            @default(now())
+  atualizadoEm DateTime            @updatedAt
+  aluno        Aluno               @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  materia      Materia             @relation(fields: [materiaId], references: [id], onDelete: Restrict)
+  professor    Professor           @relation(fields: [professorId], references: [id], onDelete: Restrict)
+  reavaliacoes PedidoReavaliacao[]
+
+  @@unique([alunoId, materiaId, periodo, titulo])
+  @@index([alunoId])
+  @@index([professorId, materiaId])
+}
+
+model PedidoReavaliacao {
+  id             String             @id @default(cuid())
+  motivo         String
+  status         StatusReavaliacao  @default(PENDENTE)
+  valorAnterior  Decimal            @db.Decimal(4, 2)
+  valorAtribuido Decimal?           @db.Decimal(4, 2)
+  motivoRecusa   String?
+  alunoId        Int
+  notaId         String
+  professorId    Int
+  respondidoEm   DateTime?
+  criadoEm       DateTime           @default(now())
+  atualizadoEm   DateTime           @updatedAt
+  aluno          Aluno              @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  nota           Nota               @relation(fields: [notaId], references: [id], onDelete: Cascade)
+  professor      Professor          @relation(fields: [professorId], references: [id], onDelete: Restrict)
+  anexos         AnexoReavaliacao[]
+
+  @@index([status, criadoEm])
+  @@index([alunoId])
+  @@index([professorId])
+}
+
+model AnexoReavaliacao {
+  id            String            @id @default(cuid())
+  nomeArquivo   String
+  tipoConteudo  String
+  tamanhoBytes  Int
+  conteudo      Bytes             @db.ByteA
+  reavaliacaoId String
+  criadoEm      DateTime          @default(now())
+  reavaliacao   PedidoReavaliacao @relation(fields: [reavaliacaoId], references: [id], onDelete: Cascade)
+
+  @@index([reavaliacaoId])
+}
+
+model SolicitacaoRecuperacaoSenha {
+  id            String            @id @default(cuid())
+  tipoConta     TipoConta
+  status        StatusSolicitacao @default(PENDENTE)
+  identificador String
+  alunoId       Int?
+  professorId   Int?
+  criadaEm      DateTime          @default(now())
+  resolvidaEm   DateTime?
+  aluno         Aluno?            @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  professor     Professor?        @relation(fields: [professorId], references: [id], onDelete: Cascade)
+
+  @@index([status, criadaEm])
+}
+
+model LogAuditoria {
+  id          String   @id @default(cuid())
+  atorTipo    String
+  atorId      Int
+  acao        String
+  entidade    String
+  entidadeId  String
+  alunoId     Int?
+  professorId Int?
+  materiaId   Int?
+  descricao   String
+  dados       Json?
+  criadoEm    DateTime @default(now())
+
+  @@index([criadoEm])
+  @@index([entidade, entidadeId])
+}

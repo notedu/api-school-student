@@ -1,0 +1,14 @@
+# Dependências e saídas de build
+**/node_modules/
+**/dist/
+**/coverage/
+
+# Arquivos de dependências gerados pelo npm
+**/package-lock.json
+
+# Cliente Prisma gerado
+backend/src/generated/prisma/
+
+# Artefatos e histórico gerado pelo Prisma
+backend/output/
+backend/prisma/migrations/
